@@ -19,17 +19,16 @@ TOTAL_CLICKS_NEEDED = 10000
 CHALLENGE_DURATION = 24 * 60 * 60  # 24 часа
 UPDATE_INTERVAL = 5  # Обновление сообщения раз в 5 секунд, если есть клики
 CLICK_COOLDOWN = 0.5  # Ограничение: 1 клик каждые 0.5 секунды
-INACTIVITY_TIMEOUT = 5  # Обновление локального счётчика после 5 секунд бездействия
 
 # Сюжетные события с шагом 1000
 PLOT_THRESHOLDS = {
     1000: " 1000! Табуреты начинают нервничать, а корабль подёргивается! 🪑",  # noqa
     3000: "🚨 3000! На корабле Кифирунцев начинает что-то дымить",  # noqa
     5000: "💥 5000! Половина пути пройдена! На корабле отключилось электричество! 🪑",  # noqa
-    7000: "🌪️ 7000! На корабле начинается паника, табуреты пытаются чинить системы. 🪑",  # noqa
+    7000: "🌪 7000! На корабле начинается паника, табуреты пытаются чинить системы. 🪑",  # noqa
     9000: "🎯 9000! Последний рывок! Табуреты не справляются с поломками и готовят эвакуацию! 🪑",
     9500: "🎯 9500! Начинается эвакуация! Корабль еле держиться в воздухе🪑",# noqa
-    9900: "🎯 9900!  Корабль летит к земле, а табуреты из последних сил пытаются эвакуироваться!🪑",
+    9900: "🎯 9900! Корабль летит к земле, а табуреты из последних сил пытаются эвакуироваться!🪑",
 }
 
 # Инициализация бота и роутера
@@ -71,7 +70,6 @@ last_message_text = ""
 last_time_left = ""  # Для отслеживания изменения времени
 last_click_time: int = 0  # Для отслеживания времени последнего клика
 user_last_click = defaultdict(float)  # Для антиспама
-user_last_interaction = defaultdict(float)  # Для отслеживания времени последнего клика
 user_remaining_clicks = defaultdict(int)  # Локальный счётчик оставшихся кликов
 
 # Переменная для приза
@@ -105,6 +103,7 @@ def load_user_clicks():
         user_clicks[user_id] = clicks
         user_names[user_id] = username if username else f"Пользователь {user_id}"  # noqa
     return user_clicks, user_names
+
 
 def save_user_click(user_id, clicks, username):
     cursor.execute('''
@@ -196,6 +195,7 @@ async def update_message():
         time_left = get_time_left()
         clicks = load_challenge_data()
 
+
         # Проверяем, нужно ли обновлять сообщение
         should_update = False
         if current_time - last_click_time < UPDATE_INTERVAL:
@@ -248,7 +248,7 @@ async def update_message():
                         last_update_time = current_time
                         last_time_left = time_left
 
-        await asyncio.sleep(1)  # Проверяем каждую секунду, чтобы не пропустить изменение времени
+        await asyncio.sleep(1)  # Проверяем каждую секунду
 
 @router.message(Command("start_challenge"))
 async def start_challenge(message: Message):
@@ -276,7 +276,6 @@ async def start_challenge(message: Message):
     last_message_text = ""
     last_time_left = ""
     user_last_click.clear()
-    user_last_interaction.clear()
     user_remaining_clicks.clear()
 
     cursor.execute("DELETE FROM challenge")
@@ -286,6 +285,7 @@ async def start_challenge(message: Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Нажми, чтобы спасти канал! 🪑", callback_data='save_channel')]  # noqa
     ])
+
 
     time_left = get_time_left()
     message_text = (
@@ -352,7 +352,7 @@ async def button_click(callback: CallbackQuery):
     global challenge_active, last_click_time
 
     if not challenge_active:
-        await callback.answer("Челлендж не активен!", show_alert=True)  # noqa
+        await callback.answer("Челлендж не активен!", show_alert=True)
         return
 
     user_id = callback.from_user.id
@@ -360,19 +360,19 @@ async def button_click(callback: CallbackQuery):
 
     # Антиспам: проверка времени последнего клика
     if current_time - user_last_click[user_id] < CLICK_COOLDOWN:
-        await callback.answer("Слишком быстро! Подожди немного 🪑", show_alert=False)  # noqa
+        await callback.answer("Слишком быстро! Подожди немного 🪑", show_alert=False)
         return
 
     user_last_click[user_id] = current_time
-    user_last_interaction[user_id] = current_time
-    last_click_time = int(current_time)  # Обновляем время последнего клика
+    last_click_time = int(current_time)
 
-    # Если пользователь не кликал 5 секунд, обновляем его локальный счётчик до актуального
+    # Получаем актуальное количество кликов
     actual_clicks = load_challenge_data()
-    if current_time - user_last_interaction[user_id] >= INACTIVITY_TIMEOUT or user_remaining_clicks[user_id] == 0:
-        user_remaining_clicks[user_id] = TOTAL_CLICKS_NEEDED - actual_clicks
+    
+    # Обновляем локальный счетчик пользователя до актуального значения
+    user_remaining_clicks[user_id] = TOTAL_CLICKS_NEEDED - actual_clicks
 
-    user_name = callback.from_user.username or callback.from_user.first_name or f"Пользователь {user_id}"  # noqa
+    user_name = callback.from_user.username or callback.from_user.first_name or f"Пользователь {user_id}"
 
     # Увеличиваем общее количество кликов
     clicks = actual_clicks + 1
@@ -384,6 +384,7 @@ async def button_click(callback: CallbackQuery):
     if user_remaining_clicks[user_id] < 0:
         user_remaining_clicks[user_id] = 0
 
+    # Обработка сюжетных событий
     for threshold, plot_message in PLOT_THRESHOLDS.items():
         if clicks == threshold and threshold not in plot_messages_sent:
             await bot.send_message(chat_id=challenge_chat_id, text=plot_message)
@@ -396,7 +397,8 @@ async def button_click(callback: CallbackQuery):
         await end_challenge("users")
         return
 
-    await callback.answer(f"Клик засчитан! Осталось кликов: {user_remaining_clicks[user_id]} 🪑", show_alert=False)  # noqa
+
+    await callback.answer(f"Клик засчитан! Осталось кликов: {user_remaining_clicks[user_id]} 🪑", show_alert=False)
 
 async def main():
     global challenge_active
