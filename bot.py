@@ -7,6 +7,7 @@ from aiogram.filters import Command
 from aiogram import F
 from collections import defaultdict
 from aiogram.exceptions import TelegramRetryAfter, TelegramBadRequest
+from fastapi import FastAPI
 
 # Токен бота
 TOKEN = "7790837350:AAEZ8txZk-8osGKA3eI9CxWHY_sG5uKBONo"  # noqa
@@ -32,6 +33,7 @@ PLOT_THRESHOLDS = {
 }
 
 # Инициализация бота и роутера
+app = FastAPI()
 bot = Bot(token=TOKEN)
 router = Router()
 
@@ -405,10 +407,12 @@ async def main():
     # Не продолжаем челлендж автоматически при запуске
     challenge_active = False
 
-    dp = Dispatcher()
+    dp = Dispatcher(bot)
     dp.include_router(router)
     await dp.start_polling(bot)
     conn.close()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
     asyncio.run(main())
