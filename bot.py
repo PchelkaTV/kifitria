@@ -12,7 +12,7 @@ from aiogram.exceptions import TelegramRetryAfter, TelegramBadRequest
 TOKEN = "7790837350:AAEZ8txZk-8osGKA3eI9CxWHY_sG5uKBONo"  # noqa
 
 # ID канала
-ALLOWED_CHAT_ID = -1001656755292
+ALLOWED_CHAT_ID = -1002634017713
 
 # Переменные челленджа
 TOTAL_CLICKS_NEEDED = 10000
